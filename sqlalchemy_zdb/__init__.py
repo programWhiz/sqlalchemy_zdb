@@ -13,7 +13,7 @@ from sqlalchemy.orm.scoping import scoped_session, Session
 
 from sqlalchemy_zdb.events import before_create, after_create
 from sqlalchemy_zdb.utils import is_zdb_table
-from sqlalchemy_zdb.types import ZdbColumn, ZdbScore
+from sqlalchemy_zdb.types import ZdbColumn, ZdbScore, ZdbTable
 from sqlalchemy.sql.schema import MetaData
 from sqlalchemy.ext.declarative.base import _declarative_constructor
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
@@ -207,10 +207,15 @@ class zdb_raw_query(FunctionElement):
     name = 'zdb_query'
 
     def __init__(self, *criterion, order_by=None, offset=0, limit=None):
+        # Wrap tables in ZdbTable helper class, this avoids
+        # exception in SqlAlchemy >= 1.1
+        criterion = tuple(
+            ZdbTable(c) if hasattr(c, '__tablename__') else c
+            for c in criterion)
+
         super(zdb_raw_query, self).__init__(*criterion)
         self._zdb_order_by = order_by
         self._zdb_limit = limit
         self._zdb_offset = offset
-
 
 from sqlalchemy_zdb.compiler import compile_zdb_query

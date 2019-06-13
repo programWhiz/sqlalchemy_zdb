@@ -12,7 +12,7 @@ from sqlalchemy.sql.elements import (
     False_, True_, UnaryExpression, Null)
 
 from sqlalchemy_zdb import zdb_raw_query, zdb_score
-from sqlalchemy_zdb.types import ZdbColumn, ZdbScore, ZdbLiteral
+from sqlalchemy_zdb.types import ZdbColumn, ZdbScore, ZdbLiteral, ZdbTable
 from sqlalchemy_zdb.operators import COMPARE_OPERATORS
 
 
@@ -142,6 +142,8 @@ def compile_clause(c, compiler, tables, format_args):
         return compile_grouping(c, compiler, tables, format_args)
     elif isinstance(c, Null):
         return "NULL"
+    elif isinstance(c, ZdbTable):
+        return c.table
     raise ValueError("Unsupported clause")
 
 
@@ -160,10 +162,10 @@ def compile_zdb_query(element, compiler, **kw):
         elif isinstance(c, BindParameter):
             if isinstance(c.value, str):
                 pass
-            elif isinstance(c.value, DeclarativeMeta):
+            elif hasattr(c.value, 'table'):
                 if i > 0:
                     raise ValueError("Table can be specified only as first param")
-                tables.add(c.value.__tablename__)
+                tables.add(c.value.table.__tablename__)
                 add_to_query = False
         elif isinstance(c, BooleanClauseList):
             pass
@@ -187,15 +189,15 @@ def compile_zdb_query(element, compiler, **kw):
                               offset=element._zdb_offset,
                               limit=element._zdb_limit)
 
-    sql = "zdb(\'%s\', ctid) ==> " % table
+    sql = "%s ==> " % table
     if format_args and isinstance(format_args, list):
-        sql += "\'%sformat(\'%s\', %s)\'" % (
+        sql += "'%sformat('%s', %s)'" % (
             limit,
             " and ".join(query),
             ", ".join(format_args)
         )
     else:
-        sql += "\'%s%s\'" % (
+        sql += "'%s%s'" % (
             limit,
             " and ".join(query))
     return sql

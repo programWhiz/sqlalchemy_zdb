@@ -82,3 +82,9 @@ class ZdbScore(Column):
         if not direction in ("asc", "desc"):
             raise Exception("Invalid parameter for direction")
         self._zdb_direction = direction
+
+
+
+class ZdbTable(object):
+    def __init__(self, table):
+        self.table = table
