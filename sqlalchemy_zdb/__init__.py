@@ -199,23 +199,38 @@ class ZdbQuery(Query):
         return super(ZdbQuery, self).first()
 
 
-class zdb_score(FunctionElement):
+def fix_criterion(criterion):
+    # Wrap tables in ZdbTable helper class, this avoids
+    # exception in SqlAlchemy >= 1.1
+    return tuple(ZdbTable(c) if hasattr(c, '__tablename__') else c for c in criterion)
+
+
+class FunctionElementFixed(FunctionElement):
+    def __init__(self, *criterion):
+        criterion = fix_criterion(criterion)
+        super().__init__(*criterion)
+
+
+class zdb_score(FunctionElementFixed):
     name = 'zdb_score'
 
 
-class zdb_raw_query(FunctionElement):
+class zdb_raw_query(FunctionElementFixed):
     name = 'zdb_query'
 
     def __init__(self, *criterion, order_by=None, offset=0, limit=None):
-        # Wrap tables in ZdbTable helper class, this avoids
-        # exception in SqlAlchemy >= 1.1
-        criterion = tuple(
-            ZdbTable(c) if hasattr(c, '__tablename__') else c
-            for c in criterion)
-
-        super(zdb_raw_query, self).__init__(*criterion)
+        super().__init__(*criterion)
         self._zdb_order_by = order_by
         self._zdb_limit = limit
         self._zdb_offset = offset
+
+
+class zdb_count(FunctionElementFixed):
+    name = 'zdb_count'
+
+
+class zdb_json_query(FunctionElementFixed):
+    name = 'zdb_json_query'
+
 
 from sqlalchemy_zdb.compiler import compile_zdb_query

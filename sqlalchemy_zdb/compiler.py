@@ -1,7 +1,8 @@
 import re
 import inspect
 import operator
-
+import psycopg2
+import json
 import sqlalchemy
 from sqlalchemy import Column
 from sqlalchemy.ext.compiler import compiles
@@ -11,7 +12,7 @@ from sqlalchemy.sql.elements import (
     BinaryExpression, BindParameter, TextClause, BooleanClauseList, Grouping,
     False_, True_, UnaryExpression, Null)
 
-from sqlalchemy_zdb import zdb_raw_query, zdb_score
+from sqlalchemy_zdb import zdb_raw_query, zdb_score, zdb_count, zdb_json_query
 from sqlalchemy_zdb.types import ZdbColumn, ZdbScore, ZdbLiteral, ZdbTable
 from sqlalchemy_zdb.operators import COMPARE_OPERATORS
 
@@ -214,3 +215,30 @@ def compile_zdb_score(element, compiler, **kw):
         return "zdb_score(\'%s\', %s.ctid)" % (c.value.__tablename__, c.value.__tablename__)
 
     raise ValueError("Incorrect param")
+
+
+@compiles(zdb_count)
+def compile_zdb_count(element, compiler, **kw):
+    clauses = list(element.clauses)
+    if len(clauses) != 2:
+        raise ValueError("Incorrect params, must be zdb_count(table, query)")
+
+    table = clauses[0].value.table.__tablename__
+    query = json.dumps(clauses[1].value)
+    query = query.replace("'", "''")
+
+    return "zdb.count('%s', '%s')" % (table, query)
+
+
+@compiles(zdb_json_query)
+def compile_zdb_json(element, compiler, **kw):
+    clauses = list(element.clauses)
+    if len(clauses) != 2:
+        raise ValueError("Incorrect params, must be zdb_json_query(table, dict)")
+
+    table = clauses[0].value.table.__tablename__
+
+    query = json.dumps(clauses[1].value)
+    query = query.replace("'", "''")
+
+    return "%s ==> '%s'" % (table, query)
